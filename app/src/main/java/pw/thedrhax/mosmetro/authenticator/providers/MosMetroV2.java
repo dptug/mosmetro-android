@@ -376,7 +376,6 @@ public class MosMetroV2 extends Provider {
                             throw new ParseException("Server returned an error", 0);
                         }
                     } catch (org.json.simple.parser.ParseException ex) {
-                        Logger.log(Logger.LEVEL.DEBUG, res.toString());
                         Logger.log(Logger.LEVEL.DEBUG, "Unable to parse: response is not JSON");
                     }
                 } catch (ProtocolException ignored) { // Too many follow-up requests
@@ -387,6 +386,7 @@ public class MosMetroV2 extends Provider {
                     ));
                     return false;
                 }
+
                 return true;
             }
         });

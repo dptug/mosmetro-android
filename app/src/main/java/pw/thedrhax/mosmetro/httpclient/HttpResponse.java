@@ -208,16 +208,6 @@ public class HttpResponse {
             throw new ParseException("Meta redirect not found", 0);
         }
 
-        // Check protocol of the URL
-        if (!(link.contains("http://") || link.contains("https://"))) {
-            link = "http://" + link;
-        }
-
-        // Workaround for auth.wi-fi.ru[/]?segment=
-        if (link.contains("?"))
-            if (!link.substring(link.indexOf("://") + 3, link.indexOf("?")).contains("/"))
-                link = link.replace("?", "/?");
-
         return absolutePathToUrl(getUrl(), link);
     }
 
@@ -243,20 +233,28 @@ public class HttpResponse {
             throw new ParseException("Location header is not present", 0);
         }
 
-        // Workaround for auth.wi-fi.ru[/]?segment=
-        if (link.contains("?"))
-            if (!link.substring(link.indexOf("://") + 3, link.indexOf("?")).contains("/"))
-                link = link.replace("?", "/?");
-
         return absolutePathToUrl(getUrl(), link);
     }
 
     public static String removePathFromUrl(String url) {
         Uri base_uri = Uri.parse(url);
-        return base_uri.getScheme() + "://" + base_uri.getHost();
+
+        StringBuilder result = new StringBuilder();
+        result.append(base_uri.getScheme()).append("://").append(base_uri.getHost());
+
+        if (base_uri.getPort() != -1) {
+            result.append(":").append(base_uri.getPort());
+        }
+
+        return result.toString();
     }
 
     public static String absolutePathToUrl(String baseUrl, String path) throws ParseException {
+        // Workaround for auth.wi-fi.ru[/]?segment=
+        if (baseUrl.contains("?"))
+            if (!baseUrl.substring(baseUrl.indexOf("://") + 3, baseUrl.indexOf("?")).contains("/"))
+                baseUrl = baseUrl.replace("?", "/?");
+
         String base = removePathFromUrl(baseUrl);
 
         if (path.startsWith("//")) {
