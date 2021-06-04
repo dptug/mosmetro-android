@@ -28,6 +28,7 @@ import java.util.UUID;
 
 import pw.thedrhax.mosmetro.BuildConfig;
 import pw.thedrhax.mosmetro.authenticator.providers.HotspotWifiRu;
+import pw.thedrhax.mosmetro.authenticator.providers.Unknown;
 import pw.thedrhax.mosmetro.authenticator.providers.AuthLastochkaCenter;
 import pw.thedrhax.mosmetro.authenticator.providers.HotspotSzimc;
 import pw.thedrhax.mosmetro.httpclient.clients.OkHttp;
@@ -73,6 +74,10 @@ class ProviderMetrics {
             case CONNECTED: connected = true; break;
             case ALREADY_CONNECTED: connected = false; break;
             default: return false;
+        }
+
+        if (p instanceof Unknown && connected) {
+            Logger.report("Unknown Connected");
         }
 
         WifiUtils wifi = new WifiUtils(p.context);
