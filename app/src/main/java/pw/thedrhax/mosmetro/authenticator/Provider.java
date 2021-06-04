@@ -45,7 +45,6 @@ import pw.thedrhax.mosmetro.httpclient.clients.OkHttp;
 import pw.thedrhax.util.Listener;
 import pw.thedrhax.util.Logger;
 import pw.thedrhax.util.Randomizer;
-import pw.thedrhax.util.Util;
 
 /**
  * Base class for all providers.
@@ -77,11 +76,6 @@ public abstract class Provider extends LinkedList<Task> {
 
     private List<Provider> children = new LinkedList<>();
     private boolean initialized = false;
-
-    /**
-     * Number of retries for each request
-     */
-    protected int pref_retry_count;
 
     /**
      * Default Client used for all network operations
@@ -148,7 +142,6 @@ public abstract class Provider extends LinkedList<Task> {
         this.context = context;
         this.settings = PreferenceManager.getDefaultSharedPreferences(context);
         this.random = new Randomizer(context);
-        this.pref_retry_count = Util.getIntPreference(context, "pref_retry_count", 3);
         this.gen_204 = new Gen204(context, running);
         setClient(new OkHttp(context));
     }
