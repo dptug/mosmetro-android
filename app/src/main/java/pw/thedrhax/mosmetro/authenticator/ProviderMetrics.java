@@ -24,7 +24,6 @@ import android.os.Build;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.UUID;
 
 import pw.thedrhax.mosmetro.BuildConfig;
 import pw.thedrhax.mosmetro.authenticator.providers.HotspotWifiRu;
@@ -34,6 +33,7 @@ import pw.thedrhax.mosmetro.authenticator.providers.HotspotSzimc;
 import pw.thedrhax.mosmetro.httpclient.clients.OkHttp;
 import pw.thedrhax.mosmetro.updater.BackendRequest;
 import pw.thedrhax.util.Logger;
+import pw.thedrhax.util.UUID;
 import pw.thedrhax.util.Version;
 import pw.thedrhax.util.WifiUtils;
 
@@ -57,13 +57,6 @@ class ProviderMetrics {
             Logger.report("HotspotWifiRu");
         }
 
-        // Generate random anonymous UUID
-        String uuid = p.settings.getString("uuid", "none");
-        if ("none".equals(uuid)) {
-            uuid = UUID.randomUUID().toString();
-            p.settings.edit().putString("uuid", uuid).apply();
-        }
-
         if (p instanceof AuthLastochkaCenter || p instanceof HotspotSzimc) {
             Logger.report("Lastochka " + p.getName());
         }
@@ -84,7 +77,7 @@ class ProviderMetrics {
 
         final HashMap<String, String> params = new HashMap<>();
 
-        params.put("uuid", uuid);
+        params.put("uuid", UUID.get(p.context));
         params.put("version_name", Version.getVersionName());
         params.put("version_code", "" + Version.getVersionCode());
         params.put("build_branch", Version.getBranch());
