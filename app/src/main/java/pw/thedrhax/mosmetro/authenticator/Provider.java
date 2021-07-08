@@ -29,7 +29,6 @@ import java.util.List;
 
 import pw.thedrhax.mosmetro.R;
 import pw.thedrhax.mosmetro.authenticator.providers.AuthLastochkaCenter;
-import pw.thedrhax.mosmetro.authenticator.providers.Enforta;
 import pw.thedrhax.mosmetro.authenticator.providers.HotspotWifiRu;
 import pw.thedrhax.mosmetro.authenticator.providers.HotspotSzimc;
 import pw.thedrhax.mosmetro.authenticator.providers.MAInet;
@@ -54,7 +53,7 @@ import pw.thedrhax.util.Randomizer;
  * @see Task
  */
 
-public abstract class Provider extends LinkedList<Task> {
+public abstract class Provider extends LinkedList<Task> implements Task {
     /**
      * List of supported SSIDs
      */
@@ -73,9 +72,7 @@ public abstract class Provider extends LinkedList<Task> {
     protected SharedPreferences settings;
     protected Randomizer random;
     protected Gen204 gen_204;
-
-    private List<Provider> children = new LinkedList<>();
-    private boolean initialized = false;
+    private boolean nested = false;
 
     /**
      * Default Client used for all network operations
@@ -102,7 +99,6 @@ public abstract class Provider extends LinkedList<Task> {
         else if (MosMetroV1.match(response)) return new MosMetroV1(context, response);
         else if (HotspotWifiRu.match(response)) return new HotspotWifiRu(context, response);
         else if (MAInet.match(response) && settings.getBoolean("pref_mainet", true)) return new MAInet(context, response);
-        else if (Enforta.match(response)) return new Enforta(context);
         else return new Unknown(context, response);
     }
 
@@ -179,75 +175,47 @@ public abstract class Provider extends LinkedList<Task> {
     }
 
     /**
-     * Add child Provider and run all it's Tasks after 'index'.
-     * If parent Provider is already initialized, child will be initialized as well.
-     * @return True if all Tasks are added to master and master.init() returns True
-     */
-    public boolean add(int index, Provider p) {
-        children.add(p.setRunningListener(running).setCallback(callback).setClient(client));
-        return super.addAll(index, p) && (!initialized || init());
-    }
-
-    /**
      * Initialize this Provider and it's children.
-     * Warning: May be called more than once!
      * @return true on success, false on error
      */
     protected boolean init() {
-        for (Provider p : children) {
-            if (!p.init()) {
-                Logger.log(context.getString(R.string.error,
-                        context.getString(R.string.auth_algorithm_failure)
-                ));
-                return false;
-            }
-            running.subscribe(p.running);
-        }
-
         for (Task task : this) {
             if (task instanceof InterceptorTask && !client.interceptors.contains(task)) {
                 client.interceptors.add((InterceptorTask) task);
             }
         }
 
-        initialized = true;
         return true;
     }
 
     /**
      * Reverse effect of init().
-     * Warning: May be called more than once!
      */
     protected void deinit() {
         for (Task task : this) {
-            if (task instanceof InterceptorTask && client.interceptors.contains(task)) {
+            if (task instanceof InterceptorTask) {
                 client.interceptors.remove(task);
             }
         }
-
-        for (Provider p : children) {
-            running.unsubscribe(p.running);
-            p.deinit();
-        }
-
-        initialized = false;
     }
 
     /**
      * Start the connection sequence defined in child classes.
      */
     public RESULT start(HashMap<String,Object> vars) {
-        ProviderMetrics metrics = new ProviderMetrics(this).start();
-        vars.put("result", RESULT.ERROR);
+        ProviderMetrics metrics = new ProviderMetrics(this);
 
-        Logger.date(">> ");
+        if (!nested) {
+            metrics.start();
+            vars.put("result", RESULT.ERROR);
+            Logger.date(">> ");
+        }
 
         if (!init()) {
             Logger.log(this, "Initialization failed");
             return RESULT.ERROR;
         }
 
-        int progress;
         for (int i = 0; i < size(); i++) {
             if (isStopped()) {
                 if (vars.get("result") == RESULT.ERROR)
@@ -255,25 +223,71 @@ public abstract class Provider extends LinkedList<Task> {
                 break;
             }
 
-            progress = (i + 1) * 100 / size();
-            if (get(i) instanceof NamedTask) {
-                Logger.log(((NamedTask)get(i)).getName());
-                callback.onProgressUpdate(progress, ((NamedTask)get(i)).getName());
+            final int progress = (i + 1) * 100 / size();
+            Task task = get(i);
+
+            if (task instanceof Provider) {
+                Provider nested = (Provider) task;
+
+                nested.setNested(true);
+                nested.setClient(client);
+                nested.setRunningListener(running);
+                nested.setCallback(new ICallback() {
+                    @Override
+                    public void onProgressUpdate(int nested_progress) {
+                        callback.onProgressUpdate(progress + nested_progress / size());
+                    }
+
+                    @Override
+                    public void onProgressUpdate(int nested_progress, String message) {
+                        callback.onProgressUpdate(progress + nested_progress / size(), message);
+                    }
+                });
+
+                Logger.log(context.getString(R.string.auth_algorithm_switch, nested.getName()));
+                vars.put("switch", nested.getName());
+
+                nested.start(vars);
+                continue;
+            }
+
+            if (nested && task instanceof FinalConnectionCheckTask) continue;
+
+            if (task instanceof NamedTask) {
+                Logger.log(((NamedTask) task).getName());
+                callback.onProgressUpdate(progress, ((NamedTask) task).getName());
             } else {
                 callback.onProgressUpdate(progress);
             }
-            if (!get(i).run(vars)) break;
+
+            if (!task.run(vars)) break;
         }
 
-        metrics.end(vars);
+        if (!nested) metrics.end(vars);
 
         deinit();
-        Logger.date("<< ");
+
+        if (!nested) Logger.date("<< ");
+
         return (RESULT)vars.get("result");
     }
 
     public RESULT start() {
-        return start(new HashMap<String,Object>());
+        return start(new HashMap<>());
+    }
+
+    @Override
+    public boolean run(HashMap<String, Object> vars) {
+        throw new RuntimeException("Provider is a special type of Task");
+    }
+
+    public Provider setNested(boolean nested) {
+        this.nested = nested;
+        return this;
+    }
+
+    public boolean isNested() {
+        return nested;
     }
 
     /**
