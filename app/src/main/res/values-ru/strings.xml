@@ -143,6 +143,7 @@
     </string>
     <string name="auth_error_regex" formatted="false">не удалось скомпилировать RegEx: %s</string>
     <string name="auth_error_loop">ожидалось перенаправление на другой алгоритм (бесконечный цикл)</string>
+    <string name="auth_error_fatal">неожиданное исключение в алгоритме</string>
 
     <string name="notification_success">Успешно подключено</string>
     <string name="notification_success_log">Нажмите, чтобы узнать подробности</string>
@@ -248,4 +249,7 @@
     <string name="algorithms">Алгоритмы</string>
     <string name="pref_manual_connection_monitoring">После ручного подключения</string>
     <string name="pref_manual_connection_monitoring_summary">Продолжать проверять соединение с интернетом после успешного ручного подключения и до прерывания соединения с сетью Wi-Fi. Это необходимо для обработки midsession.</string>
+    <string name="pref_dnsjava">Альтернативный DNS клиент</string>
+    <string name="pref_dnsjava_summary">Всегда использовать собственный DNS клиент вместо системного</string>
+    <string name="update_error">Не удалось установить обновление. Попробуйте \"Скачать\" вместо \"Установить\"</string>
 </resources>

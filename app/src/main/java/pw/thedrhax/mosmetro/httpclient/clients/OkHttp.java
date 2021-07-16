@@ -75,6 +75,7 @@ public class OkHttp extends Client {
         wifi = new WifiUtils(context);
 
         client = new OkHttpClient.Builder()
+                .dns(new DnsClient(context))
                 .followRedirects(false)
                 .followSslRedirects(false)
                 .protocols(Collections.singletonList(Protocol.HTTP_1_1))
@@ -165,23 +166,6 @@ public class OkHttp extends Client {
                 .readTimeout(ms, TimeUnit.MILLISECONDS)
                 .writeTimeout(ms, TimeUnit.MILLISECONDS)
                 .build();
-
-        return this;
-    }
-
-    @Override
-    public Client customDnsEnabled(boolean enabled) {
-        Dns dns;
-
-        if (enabled && wifi.isPrivateDnsActive()) {
-            dns = new DnsClient(context);
-        } else {
-            dns = Dns.SYSTEM;
-        }
-
-        client = client.newBuilder()
-                 .dns(dns)
-                 .build();
 
         return this;
     }
