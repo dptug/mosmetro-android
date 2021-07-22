@@ -36,7 +36,6 @@ import pw.thedrhax.mosmetro.authenticator.providers.MAInet;
 import pw.thedrhax.mosmetro.authenticator.providers.MosMetroV1;
 import pw.thedrhax.mosmetro.authenticator.providers.MosMetroV2;
 import pw.thedrhax.mosmetro.authenticator.providers.MosMetroV2WV;
-import pw.thedrhax.mosmetro.authenticator.providers.MosMetroV2mcc;
 import pw.thedrhax.mosmetro.authenticator.providers.MosMetroV3;
 import pw.thedrhax.mosmetro.authenticator.providers.Unknown;
 import pw.thedrhax.mosmetro.httpclient.Client;
@@ -97,7 +96,6 @@ public abstract class Provider extends LinkedList<Task> implements Task {
         else if (MosMetroV3.match(response, settings)) return new MosMetroV3(context, response);
         else if (MosMetroV2WV.match(response, settings)) return new MosMetroV2WV(context, response);
         else if (MosMetroV2.match(response)) return new MosMetroV2(context, response);
-        else if (MosMetroV2mcc.match(response)) return new MosMetroV2mcc(context, response);
         else if (MosMetroV1.match(response)) return new MosMetroV1(context, response);
         else if (HotspotWifiRu.match(response)) return new HotspotWifiRu(context, response);
         else if (MAInet.match(response) && settings.getBoolean("pref_mainet", true)) return new MAInet(context, response);

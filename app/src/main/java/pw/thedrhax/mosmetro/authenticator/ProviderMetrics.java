@@ -19,11 +19,13 @@
 package pw.thedrhax.mosmetro.authenticator;
 
 import android.annotation.SuppressLint;
-import android.os.AsyncTask;
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.os.Build;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Locale;
 
 import pw.thedrhax.mosmetro.BuildConfig;
 import pw.thedrhax.mosmetro.authenticator.providers.HotspotWifiRu;
@@ -33,6 +35,10 @@ import pw.thedrhax.mosmetro.authenticator.providers.HotspotSzimc;
 import pw.thedrhax.mosmetro.httpclient.clients.OkHttp;
 import pw.thedrhax.mosmetro.updater.BackendRequest;
 import pw.thedrhax.util.Logger;
+import pw.thedrhax.mosmetro.R;
+import pw.thedrhax.mosmetro.activities.SettingsActivity;
+import pw.thedrhax.mosmetro.activities.SilentActionActivity;
+import pw.thedrhax.util.Notify;
 import pw.thedrhax.util.UUID;
 import pw.thedrhax.util.Version;
 import pw.thedrhax.util.WifiUtils;
@@ -62,6 +68,7 @@ class ProviderMetrics {
         }
 
         boolean connected;
+        boolean midsession = false;
 
         switch ((Provider.RESULT) vars.get("result")) {
             case CONNECTED: connected = true; break;
@@ -86,6 +93,7 @@ class ProviderMetrics {
 
         if (vars.containsKey("midsession")) {
             params.put("success", "midsession");
+            midsession = true;
         } else {
             params.put("success", connected ? "true" : "false");
         }
@@ -93,15 +101,12 @@ class ProviderMetrics {
         params.put("ssid", wifi.getSSID());
         params.put("provider", p.getName());
 
-        String provider = p.getName();
-
         if (start_ts != null) {
             params.put("duration", "" + (System.currentTimeMillis() - start_ts));
         }
 
         if (vars.containsKey("switch")) {
-            provider = (String) vars.get("switch");
-            params.put("switch", provider);
+            params.put("switch", (String) vars.get("switch"));
         }
 
         if (vars.containsKey("segment")) {
@@ -112,26 +117,60 @@ class ProviderMetrics {
             params.put("branch", (String) vars.get("branch"));
         }
 
-        new AsyncTask<Void,Void,Void>() {
-            @Override
-            protected Void doInBackground(Void... none) {
-                if (!p.random.delay(p.running)) return null;
+        String STATISTICS_URL = p.settings.getString(
+                BackendRequest.PREF_BACKEND_URL,
+                BuildConfig.API_URL_DEFAULT
+        ) + BuildConfig.API_REL_STATISTICS;
 
-                String STATISTICS_URL = p.settings.getString(
-                        BackendRequest.PREF_BACKEND_URL,
-                        BuildConfig.API_URL_DEFAULT
-                ) + BuildConfig.API_REL_STATISTICS;
-
-                try {
-                    new OkHttp(p.context).post(STATISTICS_URL, params).execute();
-                } catch (IOException ignored) {}
-
-                return null;
-            }
-        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        try {
+            new OkHttp(p.context).post(STATISTICS_URL, params).execute();
+        } catch (IOException ignored) {}
 
         if (System.currentTimeMillis() - 6*60*60*1000 > p.settings.getLong("pref_worker_timestamp", 0)) {
             new BackendRequest(p.context).run();
+        }
+
+        boolean pref_notify_donate = p.settings.getBoolean("pref_notify_donate", true);
+        boolean pref_notify_donate_freq = p.settings.getBoolean("pref_notify_donate_freq", false);
+        int stat_connections = p.settings.getInt("stat_connections", 0);
+
+        if (pref_notify_donate && connected && !midsession) {
+            stat_connections += 1;
+            p.settings.edit().putInt("stat_connections", stat_connections).apply();
+
+            if (stat_connections > 0 && stat_connections % (pref_notify_donate_freq ? 100 : 50) == 0) {
+                Notify notify = new Notify(p.context)
+                        .id(128)
+                        .title(String.format(Locale.ENGLISH, p.context.getString(R.string.notification_donate_title), stat_connections))
+                        .text(p.context.getString(R.string.notification_donate_text))
+                        .icon(R.drawable.ic_notification_message_colored, R.drawable.ic_notification_message)
+                        .cancelOnClick(true);
+
+                if (!pref_notify_donate_freq) {
+                    notify.addAction(p.context.getString(R.string.remind_less_frequently), PendingIntent.getActivity(
+                            p.context, 129,
+                            new Intent(p.context, SilentActionActivity.class)
+                                    .setAction(SilentActionActivity.ACTION_TOGGLE_DONATE_REMINDER_FREQUENCY),
+                            PendingIntent.FLAG_CANCEL_CURRENT
+                    ));
+                }
+
+                notify.addAction(p.context.getString(R.string.do_not_show), PendingIntent.getActivity(
+                        p.context, 128,
+                        new Intent(p.context, SilentActionActivity.class)
+                                .setAction(SilentActionActivity.ACTION_DISABLE_DONATE_REMINDER),
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                ));
+
+                notify.onClick(PendingIntent.getActivity(
+                        p.context, 130,
+                        new Intent(p.context, SettingsActivity.class)
+                                .setAction(SettingsActivity.ACTION_DONATE),
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                ));
+
+                notify.show();
+            }
         }
 
         return false;
